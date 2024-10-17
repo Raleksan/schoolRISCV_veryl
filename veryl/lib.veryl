@@ -1,0 +1,51 @@
+/*
+ * schoolRISCV - small RISC-V CPU 
+ *
+ * originally based on Sarah L. Harris MIPS CPU 
+ *                   & schoolMIPS project
+ * 
+ * Copyright(c) 2017-2020 Stanislav Zhelnio 
+ *                        Aleksandr Romanov
+ *                   2024 Aleksandr Ryabov  
+ */
+
+pub module alu_commands {
+    const ALU_ADD : logic<3> = 3'b000;
+    const ALU_OR  : logic<3> = 3'b001;
+    const ALU_SRL : logic<3> = 3'b010;
+    const ALU_SLTU: logic<3> = 3'b011;
+    const ALU_SUB : logic<3> = 3'b100;
+}
+
+pub module instr_opcode {
+    const RVOP_ADDI: logic<7> = 7'b0010011;
+    const RVOP_BEQ : logic<7> = 7'b1100011;
+    const RVOP_LUI : logic<7> = 7'b0110111;
+    const RVOP_BNE : logic<7> = 7'b1100011;
+    const RVOP_ADD : logic<7> = 7'b0110011;
+    const RVOP_OR  : logic<7> = 7'b0110011;
+    const RVOP_SRL : logic<7> = 7'b0110011;
+    const RVOP_SLTU: logic<7> = 7'b0110011;
+    const RVOP_SUB : logic<7> = 7'b0110011;
+}
+
+pub module funct3 {
+    const RVF3_ADDI: logic<3> = 3'b000;
+    const RVF3_BEQ : logic<3> = 3'b000;
+    const RVF3_BNE : logic<3> = 3'b001;
+    const RVF3_ADD : logic<3> = 3'b000;
+    const RVF3_OR  : logic<3> = 3'b110;
+    const RVF3_SRL : logic<3> = 3'b101;
+    const RVF3_SLTU: logic<3> = 3'b011;
+    const RVF3_SUB : logic<3> = 3'b000;
+    const RVF3_ANY : logic<3> = 3'bxxx;
+}
+
+pub module funct7 {
+    const RVF7_ADD : logic<7> = 7'b0000000;
+    const RVF7_OR  : logic<7> = 7'b0000000;
+    const RVF7_SRL : logic<7> = 7'b0000000;
+    const RVF7_SLTU: logic<7> = 7'b0000000;
+    const RVF7_SUB : logic<7> = 7'b0100000;
+    const RVF7_ANY : logic<7> = 7'bxxxxxxx;
+}

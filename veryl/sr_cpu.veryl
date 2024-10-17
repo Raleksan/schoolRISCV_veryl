@@ -1,0 +1,53 @@
+/*
+ * schoolRISCV - small RISC-V CPU 
+ *
+ * originally based on Sarah L. Harris MIPS CPU 
+ *                   & schoolMIPS project
+ * 
+ * Copyright(c) 2017-2020 Stanislav Zhelnio 
+ *                        Aleksandr Romanov
+ *                   2024 Aleksandr Ryabov  
+ */
+
+import lib::*;
+
+module sr_cpu 
+(
+    clk     : input  clock,
+    rst     : input  reset,
+    regAddr : input  logic<5>,
+    regData : input  logic<32>,
+    imData  : input  logic<32>,
+    imAddr  : output logic<32>,
+) {
+
+    // Control wires
+    var aluZero     : logic;
+    var pcSrc       : logic;
+    var regWrite    : logic;
+    var aluSrc      : logic;
+    var wdSrc       : logic;
+    var aluControl  : logic<3>;
+
+    // Instruction decode wires
+    var cmdOp       : logic<7>;
+    var rd          : logic<5>;
+    var cmdF3       : logic<3>;
+    var rs1         : logic<5>;
+    var rs2         : logic<5>;
+    var cmdF7       : logic<7>;
+    var immI        : logic<32>;
+    var immB        : logic<32>;
+    var immU        : logic<32>;
+
+    // Program counter
+    var pc          : logic<32>;
+    var pcBranch    : logic<32>  = pc + immB;
+    var pcPlus4     : logic<32>  = pc + 4;
+    var pcNext      : logic<32>  = if pcSrc {pcBranch} else {pcPlus4};
+
+    // sm_register r_pc(clk ,rst_n, pcNext, pc);
+
+    // TODO: Add code for other modules
+
+}

@@ -1,0 +1,5 @@
+dependencies/
+target/
+*.sv
+*.f
+*.lock
