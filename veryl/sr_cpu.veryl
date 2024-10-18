@@ -9,7 +9,10 @@
  *                   2024 Aleksandr Ryabov  
  */
 
-import lib::*;
+import lib::alu_commands::*;
+import lib::instr_opcode::*;
+import lib::funct3::*;
+import lib::funct7::*;
 
 module sr_cpu 
 (
@@ -42,9 +45,9 @@ module sr_cpu
 
     // Program counter
     var pc          : logic<32>;
-    var pcBranch    : logic<32>  = pc + immB;
-    var pcPlus4     : logic<32>  = pc + 4;
-    var pcNext      : logic<32>  = if pcSrc {pcBranch} else {pcPlus4};
+    let pcBranch    : logic<32>  = pc + immB;
+    let pcPlus4     : logic<32>  = pc + 4;
+    let pcNext      : logic<32>  = if pcSrc {pcBranch} else {pcPlus4};
 
     inst sm_register: r_pc (
         clk : clk   ,
@@ -55,7 +58,7 @@ module sr_cpu
     
     // Program memory access
     assign imAddr = pc >> 2;
-    var instr       : logic<32> = imData;
+    let instr       : logic<32> = imData;
 
     // Instruction decode
     inst sr_decode: id (
@@ -77,7 +80,7 @@ module sr_cpu
     var rd2         : logic<32>;
     var wd3         : logic<32>;
 
-    inst sm_register_file: rf (
+    inst rf: sm_register_file (
         clk : clk     ,
         a0  : regAddr ,
         a1  : rs1     ,
@@ -94,10 +97,10 @@ module sr_cpu
     assign regData = if regAddr != 0 {rd0} else {pc};
 
     // ALU
-    var srcB        : logic<32> = if aluSrc {immI} else {rd2};
+    let srcB        : logic<32> = if aluSrc {immI} else {rd2};
     var aluResult   : logic<32>;
 
-    inst sr_alu: alu (
+    inst alu: sr_alu (
         srcA  : rd1       ,
         srcB  : srcB      ,
         oper  : aluControl,
@@ -108,7 +111,7 @@ module sr_cpu
     assign wd3 = if wdSrc {immU} else {aluResult};
 
     // Control
-    inst sr_control: sm_control (
+    inst sm_control: sr_control (
         cmdOp      : cmdOp     ,
         cmdF3      : cmdF3     ,
         cmdF7      : cmdF7     ,
@@ -120,4 +123,136 @@ module sr_cpu
         aluControl : aluControl,
     );
 
+}
+
+module sr_decode
+(
+    instr   : input   logic<32>,
+    cmdOp   : output  logic<7>,
+    rd      : output  logic<5>,
+    cmdF3   : output  logic<3>,
+    rs1     : output  logic<5>,
+    rs2     : output  logic<5>,
+    cmdF7   : output  logic<7>,
+    immI    : output  logic<32>,
+    immB    : output  logic<32>,
+    immU    : output  logic<32>,
+) {
+
+    assign cmdOp    = instr [6  :  0];
+    assign rd       = instr [11 :  7];
+    assign cmdF3    = instr [14 : 12];
+    assign rs1      = instr [19 : 15];
+    assign rs2      = instr [24 : 20];
+    assign cmdF7    = instr [31 : 25];
+
+    // I-immediate
+    always_comb {
+        immI[10: 0] = instr[30:20];
+        immI[31:11] = { instr[31] repeat 21 };
+    }
+
+    // B-immediate
+    always_comb {
+        immB[    0] = 1'b0;
+        immB[ 4: 1] = instr[11:8];
+        immB[10: 5] = instr[30:25];
+        immB[   11] = instr[7];
+        immB[31:12] = { instr[31] repeat 20 };
+    }
+
+    // U-immediate
+    always_comb {
+        immU[11: 0] = 12'b0;
+        immU[31:12] = instr[31:12];
+    }
+}
+
+module sr_control
+(
+    cmdOp       :   input   logic<7>,
+    cmdF3       :   input   logic<3>,
+    cmdF7       :   input   logic<7>,
+    aluZero     :   input   logic<1>,
+    pcSrc       :   output  logic<1>,
+    regWrite    :   output  logic<1>,
+    aluSrc      :   output  logic<1>,
+    wdSrc       :   output  logic<1>,
+    aluControl  :   output  logic<3>,
+) {
+
+    var branch  : logic<1>;
+    var condZero: logic<1>;
+    
+    assign pcSrc = branch & (aluZero == condZero);
+
+    always_comb {
+        branch      = 1'b0;
+        condZero    = 1'b0;
+        regWrite    = 1'b0;
+        aluSrc      = 1'b0;
+        wdSrc       = 1'b0;
+        aluControl  = alu_commands::ALU_ADD;
+
+        case {cmdF7, cmdF3, cmdOp} {
+            { RVF7_ADD,  RVF3_ADD,  RVOP_ADD  } : {regWrite = 1'b1; aluControl = ALU_ADD; }
+            { RVF7_OR,   RVF3_OR,   RVOP_OR   } : {regWrite = 1'b1; aluControl = ALU_OR;  }
+            { RVF7_SRL,  RVF3_SRL,  RVOP_SRL  } : {regWrite = 1'b1; aluControl = ALU_SRL; }
+            { RVF7_SLTU, RVF3_SLTU, RVOP_SLTU } : {regWrite = 1'b1; aluControl = ALU_SLTU;}
+            { RVF7_SUB,  RVF3_SUB,  RVOP_SUB  } : {regWrite = 1'b1; aluControl = ALU_SUB; }
+
+            { RVF7_ANY,  RVF3_ADDI, RVOP_ADDI } : {regWrite = 1'b1; aluSrc = 1'b1; aluControl = ALU_ADD;}
+            { RVF7_ANY,  RVF3_ANY,  RVOP_LUI  } : {regWrite = 1'b1; wdSrc  = 1'b1;}
+
+            { RVF7_ANY,  RVF3_BEQ,  RVOP_BEQ  } : {branch = 1'b1; condZero = 1'b1; aluControl = ALU_SUB;}
+            { RVF7_ANY,  RVF3_BNE,  RVOP_BNE  } : {branch = 1'b1; aluControl = ALU_SUB;}
+        }
+    }
+}
+
+module sr_alu
+(
+    srcA        :   input   logic<32>,
+    srcB        :   input   logic<32>,
+    oper        :   input   logic<32>,
+    zero        :   output  logic<1>,
+    result      :   output  logic<32>,
+) {
+
+    assign result = case oper {
+        ALU_ADD     :   srcA + srcB,
+        ALU_OR      :   srcA | srcB,
+        ALU_SRL     :   srcA >> srcB,
+        ALU_SLTU    :   if srcA <: srcB {1} else {0},
+        ALU_SUB     :   srcA - arcB,
+        default     :   srcA + srcB,
+    };
+
+    assign zero = result == 0;
+}
+
+module sm_register_file
+(
+    clk         :   input   clock,
+    a0          :   input   logic<5>,
+    a1          :   input   logic<5>,
+    a2          :   input   logic<5>,
+    a3          :   input   logic<5>,
+    rd0         :   output  logic<32>,
+    rd1         :   output  logic<32>,
+    rd2         :   output  logic<32>,
+    wd3         :   input   logic<32>,
+    we3         :   input   logic<1>,  
+) {
+    var rf      :   logic<32> [32];
+
+    assign rd0 = if a0 != 0 {rf[a0]} else {32'b0};
+    assign rd1 = if a1 != 0 {rf[a1]} else {32'b0};
+    assign rd2 = if a2 != 0 {rf[a2]} else {32'b0};
+
+    always_ff {
+        if (we3) {
+            rf [a3] = wd3;
+        }
+    }
 }
