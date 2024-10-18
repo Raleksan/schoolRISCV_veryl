@@ -46,8 +46,78 @@ module sr_cpu
     var pcPlus4     : logic<32>  = pc + 4;
     var pcNext      : logic<32>  = if pcSrc {pcBranch} else {pcPlus4};
 
-    // sm_register r_pc(clk ,rst_n, pcNext, pc);
+    inst sm_register: r_pc (
+        clk : clk   ,
+        rst : rst   ,
+        d   : pcNext,
+        q   : pc    ,
+    );
+    
+    // Program memory access
+    assign imAddr = pc >> 2;
+    var instr       : logic<32> = imData;
 
-    // TODO: Add code for other modules
+    // Instruction decode
+    inst sr_decode: id (
+        instr : instr,
+        cmdOp : cmdOp,
+        rd    : rd   ,
+        cmdF3 : cmdF3,
+        rs1   : rs1  ,
+        rs2   : rs2  ,
+        cmdF7 : cmdF7,
+        immI  : immI ,
+        immB  : immB ,
+        immU  : immU ,
+    );
+
+    // Register file
+    var rd0         : logic<32>;
+    var rd1         : logic<32>;
+    var rd2         : logic<32>;
+    var wd3         : logic<32>;
+
+    inst sm_register_file: rf (
+        clk : clk     ,
+        a0  : regAddr ,
+        a1  : rs1     ,
+        a2  : rs2     ,
+        a3  : rd      ,
+        rd0 : rd0     ,
+        rd1 : rd1     ,
+        rd2 : rd2     ,
+        wd3 : wd3     ,
+        we3 : regWrite,
+    );
+
+    // Debug register access
+    assign regData = if regAddr != 0 {rd0} else {pc};
+
+    // ALU
+    var srcB        : logic<32> = if aluSrc {immI} else {rd2};
+    var aluResult   : logic<32>;
+
+    inst sr_alu: alu (
+        srcA  : rd1       ,
+        srcB  : srcB      ,
+        oper  : aluControl,
+        zero  : aluZero   ,
+        result: aluResult ,
+    );
+
+    assign wd3 = if wdSrc {immU} else {aluResult};
+
+    // Control
+    inst sr_control: sm_control (
+        cmdOp      : cmdOp     ,
+        cmdF3      : cmdF3     ,
+        cmdF7      : cmdF7     ,
+        aluZero    : aluZero   ,
+        pcSrc      : pcSrc     ,
+        regWrite   : regWrite  ,
+        aluSrc     : aluSrc    ,
+        wdSrc      : wdSrc     ,
+        aluControl : aluControl,
+    );
 
 }
